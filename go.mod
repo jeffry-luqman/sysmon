@@ -1,4 +1,4 @@
-module github.com/jeffry-luqman/system-monitor
+module github.com/jeffry-luqman/sysmon
 
 go 1.24
 

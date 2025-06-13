@@ -3,11 +3,11 @@
 os=$(uname)
 
 if [[ "$os" == "Linux" ]]; then
-    wget https://github.com/jeffry-luqman/sysmon/releases/download/v0.0.1/sysmon-linux64
+    wget https://github.com/jeffry-luqman/sysmon/releases/download/v0.0.2/sysmon-linux64
     sudo mv sysmon-linux64 /usr/local/bin/sysmon
     sudo chmod 755 /usr/local/bin/sysmon
 elif [[ "$os" == "Darwin" ]]; then
-    curl -OL https://github.com/jeffry-luqman/sysmon/releases/download/v0.0.1/sysmon-mac64
+    curl -OL https://github.com/jeffry-luqman/sysmon/releases/download/v0.0.2/sysmon-mac64
     sudo mv sysmon-mac64 /usr/local/bin/sysmon
     sudo chmod 755 /usr/local/bin/sysmon
 else

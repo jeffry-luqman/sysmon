@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>System Monitor</title>
+	<script src="apexcharts.js"></script>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			background: #f9f9f9;
+			padding: 20px;
+		}
+		.chart {
+			margin-bottom: 40px;
+		}
+	</style>
+</head>
+<body>
+	<h1>System Monitor</h1>
+	<div id="cpuChart" class="chart"></div>
+	<div id="memChart" class="chart"></div>
+	<div id="swapChart" class="chart"></div>
+	<div id="diskChart" class="chart"></div>
+	<div id="ioChart" class="chart"></div>
+	<div id="networkChart" class="chart"></div>
+	<script>
+		const chartOpt = {
+			chart: { type: 'area', height: 300, animations: { enabled: false }, toolbar: { show: false } },
+			grid: { yaxis: { lines: { show: false } } },
+			dataLabels: { enabled: false },
+			stroke: { width: 1.5, curve: 'smooth' },
+			tooltip: { x: { format: 'dd-MMM-yyyy HH:mm' } },
+			series: [],
+			xaxis: {
+				type: 'datetime', 
+				title: { text: 'Time' },
+				labels: {
+					formatter: function (val) {
+						const date = new Date(val);
+						return date.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+					}
+				},
+				tooltip: { enabled: false }
+			},
+		}
+
+		const cpuChart = new ApexCharts(document.querySelector("#cpuChart"), {
+			...chartOpt,
+			title: { text: 'CPU Usage per Core' },
+			chart: { type: 'line', height: 300, animations: { enabled: false }, toolbar: { show: false } },
+			yaxis: { max: 100, min: 0, labels: { formatter: val => val + "%" } }
+		});
+
+		const memChart = new ApexCharts(document.querySelector("#memChart"), {
+			...chartOpt,
+			title: { text: 'Memory Usage' },
+			tooltip: {
+				y: {
+					formatter: (val, { dataPointIndex, w }) => {
+						const d = w.config.series[0].data[dataPointIndex];
+						return `${val.toFixed(1)}% | Total: ${formatBytes(d.total)} | Used: ${formatBytes(d.used)} | Free: ${formatBytes(d.free)}`;
+					}
+				}
+			},
+			yaxis: { max: 100, labels: { formatter: val => val + "%" } }
+		});
+
+		const swapChart = new ApexCharts(document.querySelector("#swapChart"), {
+			...chartOpt,
+			title: { text: 'Swap Usage' },
+			tooltip: {
+				y: {
+					formatter: (val, { dataPointIndex, w }) => {
+						const d = w.config.series[0].data[dataPointIndex];
+						return `${val.toFixed(1)}% | Total: ${formatBytes(d.total)} | Used: ${formatBytes(d.used)} | Free: ${formatBytes(d.free)}`;
+					}
+				}
+			},
+			yaxis: { max: 100, labels: { formatter: val => val + "%" } }
+		});
+
+		const diskChart = new ApexCharts(document.querySelector("#diskChart"), {
+			...chartOpt,
+			title: { text: 'Disk Usage' },
+			tooltip: {
+				y: {
+					formatter: (val, { dataPointIndex, w }) => {
+						const d = w.config.series[0].data[dataPointIndex];
+						return `${val.toFixed(1)}% | Total: ${formatBytes(d.total)} | Used: ${formatBytes(d.used)} | Free: ${formatBytes(d.free)}`;
+					}
+				}
+			},
+			yaxis: { max: 100, labels: { formatter: val => val + "%" } }
+		});
+
+		const ioChart = new ApexCharts(document.querySelector("#ioChart"), {
+			...chartOpt,
+			title: { text: 'Disk I/O (KB/s)' },
+			yaxis: { labels: { formatter: val => `${val.toFixed(1)} KB/s` } },
+		});
+
+		const networkChart = new ApexCharts(document.querySelector("#networkChart"), {
+			...chartOpt,
+			title: { text: 'Network (KB/s)' },
+			yaxis: { labels: { formatter: val => `${val.toFixed(1)} KB/s` } },
+		});
+
+		cpuChart.render();
+		memChart.render();
+		swapChart.render();
+		diskChart.render();
+		ioChart.render();
+		networkChart.render();
+
+		function formatBytes(bytes) {
+			if (bytes === 0) return "0 B";
+			const k = 1024, dm = 2;
+			const sizes = ["B", "KB", "MB", "GB", "TB"];
+			const i = Math.floor(Math.log(bytes) / Math.log(k));
+			return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+		}
+
+		async function fetchData() {
+			const res = await fetch('/status');
+			const data = await res.json();
+
+			// CPU
+			const cpuSeries = [];
+			const coreCount = data[0].cpu.length;
+			for (let i = 0; i < coreCount; i++) {
+				cpuSeries.push({
+					name: `CPU ${i+1}`,
+					data: data.map(d => [new Date(d.timestamp).getTime(), d.cpu[i].toFixed(1)])
+				});
+			}
+			cpuChart.updateSeries(cpuSeries);
+
+			// Memory
+			memChart.updateSeries([{
+				name: "Memory Usage",
+				data: data.map(d => {
+					const percent = (d.mem_used / d.mem_total) * 100;
+					return { x: new Date(d.timestamp).getTime(), y: percent, used: d.mem_used, total: d.mem_total, free: d.mem_total - d.mem_used };
+				})
+			}]);
+
+			// Swap
+			swapChart.updateSeries([{
+				name: "Swap Usage",
+				data: data.map(d => {
+					const percent = d.swap_total > 0 ? (d.swap_used / d.swap_total) * 100 : 0;
+					return { x: new Date(d.timestamp).getTime(), y: percent, used: d.swap_used, total: d.swap_total, free: d.swap_total - d.swap_used };
+				})
+			}]);
+
+			// Disk
+			diskChart.updateSeries([{
+				name: "Disk Usage",
+				data: data.map(d => {
+					const percent = (d.disk_used / d.disk_total) * 100;
+					return { x: new Date(d.timestamp).getTime(), y: percent, used: d.disk_used, total: d.disk_total, free: d.disk_total - d.disk_used };
+				})
+			}]);
+
+			// I/O
+			ioChart.updateSeries([
+				{
+					name: 'Read',
+					data: data.map(d => [new Date(d.timestamp).getTime(), d.disk_read / 1024])
+				},
+				{
+					name: 'Write',
+					data: data.map(d => [new Date(d.timestamp).getTime(), d.disk_write / 1024])
+				}
+			]);
+
+			// Network
+			networkChart.updateSeries([
+				{
+					name: 'Receive',
+					data: data.map(d => [new Date(d.timestamp).getTime(), d.net_receive / 1024])
+				},
+				{
+					name: 'Send',
+					data: data.map(d => [new Date(d.timestamp).getTime(), d.net_send / 1024])
+				}
+			]);
+		}
+
+		setInterval(fetchData, 5000);
+		fetchData();
+	</script>
+</body>
+</html>
